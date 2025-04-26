@@ -2,83 +2,83 @@
 error_reporting(0);
 ini_set('display_errors', 0);
 
-// الحصول على المتغيرات من إعدادات Render
+// 1) جلب المتغيّرات البيئية
 $token = getenv('7610782352:AAG1_pkpRrRSz62D1Fe9CBw8DK_m77Q-iWw');
 $admin = (int)getenv('7790070110');
 define('API_KEY', $token);
 
-// إعداد مسارات التخزين الدائمة
+// 2) تحديد $update و $from_id
+//    تأكد من أنّ index.php يعرّف $update قبل require
+if (!isset($update) || !is_array($update)) {
+    exit;  // لا تحديثات، انهي السكربت
+}
+$from_id = $update['message']['from']['id'] ?? 0;
+
+// 3) مسار التخزين
 $storagePath = __DIR__ . '/storage';
 if (!is_dir($storagePath)) {
     mkdir($storagePath, 0755, true);
 }
 
-// وظيفة التحقق من صحة الخدمة لـ Render
-if ($_SERVER['REQUEST_URI'] == '/health') {
+// 4) Health check لـ Render
+if ($_SERVER['REQUEST_URI'] === '/health') {
     http_response_code(200);
     exit("OK");
 }
 
-// عرض رابط SetWebhook مع عنوان Render الخارجي
-$webhookUrl = getenv('RENDER_EXTERNAL_URL') . '/index.php';
-echo "setWebhook ~> <a href=\"https://api.telegram.org/bot".API_KEY."/setwebhook?url={$webhookUrl}\">{$webhookUrl}</a>";
+// 5) (اختياري) عرض رابط setWebhook فقط عند طلب خاص
+// if (isset($_GET['show_webhook_link'])) {
+//     $webhookUrl = getenv('RENDER_EXTERNAL_URL') . '/index.php';
+//     echo "<a href=\"https://api.telegram.org/bot".API_KEY.
+//          "/setWebhook?url={$webhookUrl}\">{$webhookUrl}</a>";
+//     exit;
+// }
 
+// 6) دالة الطلب إلى Telegram
 function bot($method, $datas = []) {
     $url = "https://api.telegram.org/bot".API_KEY."/".$method;
-    $ch = curl_init();
-    curl_setopt($ch, CURLOPT_URL, $url);
+    $ch = curl_init($url);
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
     curl_setopt($ch, CURLOPT_POSTFIELDS, $datas);
     $res = curl_exec($ch);
-    if(curl_error($ch)) {
+    if (curl_error($ch)) {
         error_log(curl_error($ch));
-    } else {
-        return json_decode($res);
+        return null;
     }
+    return json_decode($res, true);
 }
 
-// البقية من الكود مع تعديل المسارات
-$usrbot = bot("getme")->result->username;
-$emoji = "➡️\n🎟️\n↪️\n🔘\n🏠";
-$emoji = explode("\n", $emoji);
-$b = $emoji[rand(0, 4)];
-$NamesBACK = "رجوع $b";
-
-define("USR_BOT", $usrbot);
-
-function SETJSON($INPUT) {
-    global $storagePath;
-    $F = $storagePath . "/UploadEr.json";
-    $N = json_encode($INPUT, JSON_PRETTY_PRINT);
-    file_put_contents($F, $N);
+// 7) مثال بسيط: رد ترحيبي
+if (isset($update['message']['text'])) {
+    bot('sendMessage', [
+        'chat_id' => $from_id,
+        'text'    => "أهلًا! لقد وصلت رسالتك: " . $update['message']['text']
+    ]);
 }
 
-// التعديل على مسار قراءة الملف
-$uploaderFile = $storagePath . "/UploadEr.json";
-if (!file_exists($uploaderFile)) {
-    file_put_contents($uploaderFile, '{}');
-}
-$UploadEr = json_decode(file_get_contents($uploaderFile), true);
+// 8) القسم الخاص بتحميل الملفات
+if (isset($update['message']['document'])) {
+    // جلب ملف JSON المُدخَل
+    $file = bot("getFile", ['file_id' => $update['message']['document']['file_id']]);
+    $filePath = $file['result']['file_path'] ?? '';
+    $fileUrl = "https://api.telegram.org/file/bot".API_KEY."/".$filePath;
 
-// ... (بقية الكود الأصلي مع استبدال جميع مراجع UploadEr.json بالمسار الجديد)
-
-// تعديل قسم رفع الملفات
-if($update->message->document) {
-    $file_id = "https://api.telegram.org/file/bot".API_KEY."/".bot("getfile",["file_id"=>$update->message->document->file_id])->result->file_path;
-    
-    // إنشاء مجلد خاص لكل مستخدم
+    // إنشاء مجلد للمستخدم
     $userStorage = $storagePath . "/user_" . $from_id;
     if (!is_dir($userStorage)) {
         mkdir($userStorage, 0755, true);
     }
-    
-    // حفظ الملف في مسار المستخدم
-    $fileName = basename($file_id);
-    $fileContent = file_get_contents($file_id);
+
+    // حفظ الملف
+    $fileName    = basename($filePath);
+    $fileContent = file_get_contents($fileUrl);
     file_put_contents($userStorage . "/" . $fileName, $fileContent);
-    
-    // ... (بقية معالجة الملف)
+
+    // تأكيد للمستخدم
+    bot('sendMessage', [
+        'chat_id' => $from_id,
+        'text'    => "تم حفظ الملف: {$fileName}"
+    ]);
 }
 
-// أعد كتابة جميع الإشارات إلى UploadEr.json لاستخدام المسار الجديد
-// واستبدل جميع mkdir("UploadEr") بالمسار $storagePath
+// يمكنك إضافة باقي منطق البوت هنا...
