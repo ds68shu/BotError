@@ -1,0 +1,9 @@
+<?php
+// index.php — نقطة دخول Webhook
+// Telegram ترسل هنا جميع التحديثات كـ JSON في body
+
+// اقرأ البيانات الواردة
+$update = json_decode(file_get_contents('php://input'), true);
+
+// يمكنك تمرير $update إلى سكربت البوت
+require __DIR__ . '/appp.php';

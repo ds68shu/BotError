@@ -1,0 +1,14 @@
+# تجاهل كل ما في storage إلا .gitkeep
+/storage/*
+!/storage/.gitkeep
+
+# سجّلات وملفات مؤقتة
+*.log
+*.tmp
+
+# ملفات بيئة التطوير
+.env
+
+# مجلدات خارجية
+node_modules
+vendor

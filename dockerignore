@@ -1,0 +1,18 @@
+# تجاهل ملفات Git
+.git
+.gitignore
+
+# مجلد التخزين (لن يُرفع، نستخدم .gitkeep)
+storage/*
+!storage/.gitkeep
+
+# ملفات السجّلات المؤقتة
+*.log
+*.tmp
+
+# ملفات بيئة التطوير
+.env
+
+# مجلدات وإخراجات بناء أخرى
+node_modules
+vendor
